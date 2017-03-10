@@ -24,11 +24,88 @@ from .radtrans_integrate import radtrans_integrate
 METHOD_LSODA_YES_LINEAR_STOKES = 0 # LSODA with IS_LINEAR_STOKES=1
 METHOD_DELO = 1 # DELO method from Rees+ (1989ApJ...339.1093R)
 METHOD_FORMAL = 2 # "formal" method; may be "matricant (O-matrix) method from Landi Degl'Innocenti"?
-METHOD_LSODA_NO_LINEAR_STOKES = 3 # LSODA with IS_LINEAR_STOKES=0
+METHOD_LSODA_NO_LINEAR_STOKES = 3 # LSODA with IS_LINEAR_STOKES=0 -- this is "under development" spherical stokes
 
 
-def integrate_ray (x, j, K, atol=1e-8, rtol=1e-6, method=METHOD_FORMAL, tau_max=10.):
+def integrate_ray (x, j, K, atol=1e-8, rtol=1e-6, max_step_size=None, max_steps=100000):
     """Arguments:
+
+    x
+      1D array, shape (n,). Path length along ray, starting from zero, in cm.
+    j
+      Array, shape (n, 4). Emission coefficients.
+    K
+      Array, shape (n, 7). Absorption coefficients and Faraday mixing coefficients:
+      (alpha_{IQUV}, rho_{123}).
+    atol
+      Some kind of tolerance parameter.
+    rtol
+      Some kind of tolerance parameter.
+    max_step_size
+      The maximum absolute step size.
+    max_steps
+      The maximum number of steps to take.
+
+    Returns: Array of shape (4, m): Stokes intensities along parts of the ray with
+    non-zero total emissivities; m <= n.
+
+    """
+    n = x.size
+
+    if max_step_size is None:
+        max_step_size = x.max() / 20.
+
+    # the LSODA method clips its input arrays based on "tau" and zero emission
+    # coefficients. It's hard for us to find out how it clipped, though, so we
+    # reproduce its logic. The code that calls us hunts around for where the
+    # emission is, so our clipping should generally be only an item or two at
+    # each edge of the array -- which is why we hunt in a for loop rather than
+    # using np.where() or something more vector-y.
+
+    if np.all(j[:,0] == 0.):
+        return np.zeros((4, n))
+
+    i0 = 0
+    i1 = n - 1
+
+    while j[i0,0] == 0.:
+        i0 += 1
+    while j[i1,0] == 0.:
+        i1 -= 1
+
+    n = i1 + 1 - i0
+    x = x[i0:i1+1]
+    j = j[i0:i1+1]
+    K = K[i0:i1+1]
+
+    # OK we can go.
+
+    radtrans_integrate.init_radtrans_integrate_data (
+        METHOD_LSODA_YES_LINEAR_STOKES, # method selector
+        4, # number of equations
+        n, # number of input data points
+        n, # number of output data points
+        10., # maximum optical depth; defused here
+        max_step_size, # maximum absolute step size
+        atol, # absolute tolerance
+        rtol, # relative tolerance
+        1e-2, # "thin" parameter for DELO method ... to be researched
+        max_steps, # maximum number of steps
+    )
+
+    tau = np.zeros(n) # this is not actually used in LSODA.
+    radtrans_integrate.integrate (x[::-1], j, K, tau, 4)
+    i = radtrans_integrate.intensity.copy ()
+    radtrans_integrate.del_radtrans_integrate_data ()
+    return i
+
+
+def integrate_ray_generic (x, j, K, atol=1e-8, rtol=1e-6, method=METHOD_FORMAL, tau_max=10., max_step_size=0.1):
+    """NOTE! The different integrators are not consistent in their behaviors so
+    this function might give weird results if the arguments aren't set up right.
+    Consult `radtrans_integrate.f90`.
+
+    Arguments:
 
     x
       1D array, shape (n,). "path length along the ray starting from its minimum"
@@ -45,6 +122,8 @@ def integrate_ray (x, j, K, atol=1e-8, rtol=1e-6, method=METHOD_FORMAL, tau_max=
       The integration method to use; see METHOD_* constants.
     tau_max
       The maximum optical depth for the LSODA methods.
+    max_step_size
+      The maximum absolute step size.
 
     Returns: Array of shape (4, n): Stokes intensities along the ray.
 
@@ -58,12 +137,16 @@ def integrate_ray (x, j, K, atol=1e-8, rtol=1e-6, method=METHOD_FORMAL, tau_max=
         n, # number of input data points
         n, # number of output data points
         tau_max, # maximum optical depth
-        0.1, # maximum absolute step size
+        max_step_size, # maximum absolute step size
         atol, # absolute tolerance
         rtol, # relative tolerance
         1e-2, # "thin" parameter for DELO method ... to be researched
         100000, # maximum number of steps
     )
+
+    # The integration proceeds from the start of the arrays to the back as you
+    # would expect, but the integrators expect x to be reversed. Our x has
+    # x[i+1] > x[i]; what we pass it is the opposite.
 
     tau = np.append (0., cumtrapz (K[:,0], x)) # shape (n,)
     radtrans_integrate.integrate (x[::-1], j, K, tau, 4)
