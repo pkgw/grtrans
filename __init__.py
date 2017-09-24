@@ -27,7 +27,7 @@ METHOD_FORMAL = 2 # "formal" method; may be "matricant (O-matrix) method from La
 METHOD_LSODA_NO_LINEAR_STOKES = 3 # LSODA with IS_LINEAR_STOKES=0 -- this is "under development" spherical stokes
 
 
-def integrate_ray (x, j, K, atol=1e-8, rtol=1e-6, max_step_size=None, max_steps=100000):
+def integrate_ray(x, j, K, atol=1e-8, rtol=1e-6, max_step_size=None, max_steps=100000):
     """Arguments:
 
     x
@@ -80,7 +80,7 @@ def integrate_ray (x, j, K, atol=1e-8, rtol=1e-6, max_step_size=None, max_steps=
 
     # OK we can go.
 
-    radtrans_integrate.init_radtrans_integrate_data (
+    radtrans_integrate.init_radtrans_integrate_data(
         METHOD_LSODA_YES_LINEAR_STOKES, # method selector
         4, # number of equations
         n, # number of input data points
@@ -94,13 +94,13 @@ def integrate_ray (x, j, K, atol=1e-8, rtol=1e-6, max_step_size=None, max_steps=
     )
 
     tau = np.zeros(n) # this is not actually used in LSODA.
-    radtrans_integrate.integrate (x[::-1], j, K, tau, 4)
-    i = radtrans_integrate.intensity.copy ()
-    radtrans_integrate.del_radtrans_integrate_data ()
+    radtrans_integrate.integrate(x[::-1], j, K, tau, 4)
+    i = radtrans_integrate.intensity.copy()
+    radtrans_integrate.del_radtrans_integrate_data()
     return i
 
 
-def integrate_ray_generic (x, j, K, atol=1e-8, rtol=1e-6, method=METHOD_FORMAL, tau_max=10., max_step_size=0.1):
+def integrate_ray_generic(x, j, K, atol=1e-8, rtol=1e-6, method=METHOD_FORMAL, tau_max=10., max_step_size=0.1):
     """NOTE! The different integrators are not consistent in their behaviors so
     this function might give weird results if the arguments aren't set up right.
     Consult `radtrans_integrate.f90`.
@@ -131,7 +131,7 @@ def integrate_ray_generic (x, j, K, atol=1e-8, rtol=1e-6, method=METHOD_FORMAL, 
     n = x.size
     from scipy.integrate import cumtrapz
 
-    radtrans_integrate.init_radtrans_integrate_data (
+    radtrans_integrate.init_radtrans_integrate_data(
         method, # method selector
         4, # number of equations
         n, # number of input data points
@@ -148,15 +148,15 @@ def integrate_ray_generic (x, j, K, atol=1e-8, rtol=1e-6, method=METHOD_FORMAL, 
     # would expect, but the integrators expect x to be reversed. Our x has
     # x[i+1] > x[i]; what we pass it is the opposite.
 
-    tau = np.append (0., cumtrapz (K[:,0], x)) # shape (n,)
-    radtrans_integrate.integrate (x[::-1], j, K, tau, 4)
-    i = radtrans_integrate.intensity.copy ()
-    radtrans_integrate.del_radtrans_integrate_data ()
+    tau = np.append(0., cumtrapz(K[:,0], x)) # shape (n,)
+    radtrans_integrate.integrate(x[::-1], j, K, tau, 4)
+    i = radtrans_integrate.intensity.copy()
+    radtrans_integrate.del_radtrans_integrate_data()
     return i
 
 
 @broadcastize(7, ret_spec=None)
-def calc_powerlaw_synchrotron_coefficients (nu, B, n_e, theta, p, gamma_min, gamma_max):
+def calc_powerlaw_synchrotron_coefficients(nu, B, n_e, theta, p, gamma_min, gamma_max):
     """Jason Dexter writes: "polsynchpl is only very accurate for p = 3, 3.5, 7
     because it uses numerically tabulated integrals. For other values of p it
     interpolates or extrapolates."
@@ -181,16 +181,16 @@ def calc_powerlaw_synchrotron_coefficients (nu, B, n_e, theta, p, gamma_min, gam
     # segfault if size = 1, but everything seems to work OK if we just lie ...
     size = max(nu.size, 2)
 
-    polsynchemis.initialize_polsynchpl (size)
-    chunk = polsynchemis.polsynchpl (nu, n_e, B, theta, p, gamma_min, gamma_max)
-    polsynchemis.del_polsynchpl (size)
+    polsynchemis.initialize_polsynchpl(size)
+    chunk = polsynchemis.polsynchpl(nu, n_e, B, theta, p, gamma_min, gamma_max)
+    polsynchemis.del_polsynchpl(size)
     return chunk
 
 
 # Slightly higher-level wrappers ...
 
 @broadcastize(7, ret_spec=None)
-def calc_powerlaw_nontrivial (nu, B, n_e, theta, p, gamma_min, gamma_max):
+def calc_powerlaw_nontrivial(nu, B, n_e, theta, p, gamma_min, gamma_max):
     """Like `calc_powerlaw_synchrotron_coefficients`, but packs the outputs in the
     same way as used by my work with Symphony.
 
