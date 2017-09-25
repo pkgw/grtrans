@@ -27,7 +27,8 @@ METHOD_FORMAL = 2 # "formal" method; may be "matricant (O-matrix) method from La
 METHOD_LSODA_NO_LINEAR_STOKES = 3 # LSODA with IS_LINEAR_STOKES=0 -- this is "under development" spherical stokes
 
 
-def integrate_ray(x, j, K, atol=1e-8, rtol=1e-6, max_step_size=None, max_steps=100000):
+def integrate_ray(x, j, K, atol=1e-8, rtol=1e-6, max_step_size=None,
+                  frac_max_step_size=1e-3, max_steps=100000):
     """Arguments:
 
     x
@@ -42,7 +43,12 @@ def integrate_ray(x, j, K, atol=1e-8, rtol=1e-6, max_step_size=None, max_steps=1
     rtol
       Some kind of tolerance parameter.
     max_step_size
-      The maximum absolute step size.
+      The maximum absolute step size. Overrides `frac_max_step_size`.
+    frac_max_step_size
+      If `max_step_size`, is not specified the maximum step size passed to the
+      integrator is `x.max()` multiplied by this parameter. Experience shows
+      that (for LSODA at least) this parameter must be pretty small to get
+      good convergence!
     max_steps
       The maximum number of steps to take.
 
@@ -53,7 +59,7 @@ def integrate_ray(x, j, K, atol=1e-8, rtol=1e-6, max_step_size=None, max_steps=1
     n = x.size
 
     if max_step_size is None:
-        max_step_size = x.max() / 20.
+        max_step_size = frac_max_step_size * x.max()
 
     # the LSODA method clips its input arrays based on "tau" and zero emission
     # coefficients. It's hard for us to find out how it clipped, though, so we
