@@ -99,10 +99,13 @@ def integrate_ray(x, j, K, atol=1e-8, rtol=1e-6, max_step_size=None,
         max_steps, # maximum number of steps
     )
 
-    tau = np.zeros(n) # this is not actually used in LSODA.
-    radtrans_integrate.integrate(x[::-1], j, K, tau, 4)
-    i = radtrans_integrate.intensity.copy()
-    radtrans_integrate.del_radtrans_integrate_data()
+    try:
+        tau = np.zeros(n) # this is not actually used in LSODA.
+        radtrans_integrate.integrate(x[::-1], j, K, tau, 4)
+        i = radtrans_integrate.intensity.copy()
+    finally:
+        # If we exit without calling this, the next init call causes an abort
+        radtrans_integrate.del_radtrans_integrate_data()
     return i
 
 
@@ -154,10 +157,13 @@ def integrate_ray_generic(x, j, K, atol=1e-8, rtol=1e-6, method=METHOD_FORMAL, t
     # would expect, but the integrators expect x to be reversed. Our x has
     # x[i+1] > x[i]; what we pass it is the opposite.
 
-    tau = np.append(0., cumtrapz(K[:,0], x)) # shape (n,)
-    radtrans_integrate.integrate(x[::-1], j, K, tau, 4)
-    i = radtrans_integrate.intensity.copy()
-    radtrans_integrate.del_radtrans_integrate_data()
+    try:
+        tau = np.append(0., cumtrapz(K[:,0], x)) # shape (n,)
+        radtrans_integrate.integrate(x[::-1], j, K, tau, 4)
+        i = radtrans_integrate.intensity.copy()
+    finally:
+        # If we exit without calling this, the next init call causes an abort
+        radtrans_integrate.del_radtrans_integrate_data()
     return i
 
 
