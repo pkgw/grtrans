@@ -3,7 +3,6 @@ FCNAME = gnu95
 LOCAL_FFLAGS = -g -ffixed-line-length-132 -fopenmp -O3 -W -Wall -fPIC $(FFLAGS)
 LOCAL_LIBS = -lgomp $(LIBS)
 
-
 all: polsynchemis.so radtrans_integrate.so
 
 libgrtrans.a: interpolate.o interpolate_aux.o math.o odepack.o odepack_aux.o phys_constants.o

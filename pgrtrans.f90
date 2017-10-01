@@ -13,13 +13,12 @@
             uout,uin, rcut, nrotype, gridvals, nn,i1,i2,fname, dt, nt, nload, &
             nmdot, mdotmin, mdotmax,ename, mbh, nfreq, fmin, fmax, muval,&
             gmin, gmax,p1, p2, jetalpha, stype,use_geokerr, nvals, iname,&
-            cflag, extra, debug,outfile, fdfile,fhfile,fgfile,fsim,fnt,findf,fnfiles,fjonfix, &
+            cflag, extra, debug,outfile,fdfile,fhfile,fgfile,fsim,fnt,findf,fnfiles,fjonfix, &
             fnw,fnfreq_tab,fnr,foffset,fdindf,fmagcrit,frspot,fr0spot,fn0spot,ftscl,frscl, &
             fwmin,fwmax,ffmin,ffmax,frmax,fsigt,ffcol,fmdot,fnscl,fnnthscl,fnnthp,fbeta, &
             fbl06,fnp,ftp,frin,frout,fthin,fthout,fphiin,fphiout,epcoefindx,epotherargs,nepotherargs)
            
              use omp_lib
-       !       use grtrans_inputs
              use grtrans, only: grtrans_driver
              use ray_trace, only: ray_set, initialize_raytrace_camera, &
                   kwrite_raytrace_camera, del_raytrace_camera
@@ -56,13 +55,9 @@
 !            integer, intent(in) :: nepcoefindx
             integer, dimension(7), intent(in) :: epcoefindx
             !INPUTS====================
-            !character(len=40), intent(in) :: outfile !,ifile
-            !       character(len=40) :: outfile,ifile
             integer :: nextra=0, inum, gunit, i, ncams, j, m, l, nparams, iii
             real(kind=8) :: wtime
             type (ray_set), dimension(:), allocatable :: c
-!            real(kind=8), dimension(2,nn(1)*nn(2),nmdot*nt*nfreq*nmu), intent(out) :: ab
-!            real(kind=8), dimension(nvals,nn(1)*nn(2),nmdot*nt*nfreq*nmu), intent(out) :: ivals
             type (geokerr_args) :: gargs
             type (fluid_args) :: fargs
             type (source_params), dimension(:), allocatable :: sparams
@@ -73,7 +68,7 @@
             kdescs(2)='# y pixels'
             knames(3)='nu'; kdescs(3)='Frequency (Hz)'
             gunit=12
-            !COMPUTE INPUTS AS IN read_inputs==================================
+            !COMPUTE INPUTS==================================
             a1=dble(gridvals(1))
             a2=dble(gridvals(2))
             b1=dble(gridvals(3))
@@ -84,8 +79,6 @@
        !          write(6,*) 'read inputs nup: ',spin
             ! Compute frequencies w/ log spacing between and including fmin, fmax:
             allocate(freqs(nfreq)); allocate(mu0(nmu)); allocate(mdots(nmdot))
-            NCAMS=nmdot*nfreq*nmu*nt
-!            call init_pgrtrans_data(nro*nphi,NCAMS,nfreq,nmdot,nmu)
             if(nfreq==1) then
                freqs=(/fmin/)
             else
@@ -132,25 +125,12 @@
                sparams(iii)%p2=p2
                call assign_source_params_type(sparams(iii),stype)
             enddo
+            NCAMS=nparams*nfreq*nmu*nt
             allocate(c(NCAMS))
             if(outfile.ne."") write(6,*) 'outfile grtrans: ',outfile, NCAMS
             do m=1,NCAMS
                call initialize_raytrace_camera(c(m),nro,nphi,nvals,nextra)
             enddo
-            write(6,*) 'fluid args: ',fdfile,fhfile,fgfile,fsim,fnt,findf,fnfiles,fjonfix
-            write(6,*) 'fluid args 2: ',fnw,fnfreq_tab,fnr,foffset,fdindf,fmagcrit
-            write(6,*) 'fluid args 3: ',frspot,fr0spot,fn0spot,ftscl,frscl
-            write(6,*) 'fluid args 4: ',fwmin,fwmax,ffmin,ffmax,frmax,fsigt,ffcol
-            write(6,*) 'fluid args 5: ',fmdot,mbh,fnscl,fnnthscl,fnnthp,fbeta,fbl06
-            write(6,*) 'args: ',mu0,muval,mdots
-            write(6,*) 'args 1: ',freqs
-            write(6,*) 'args 2: ',ename,mbh,uout
-            write(6,*) 'args all: ',standard,mumin,mumax,nmu,phi0,spin,&
-            uout,uin, rcut, nrotype, gridvals, nn,fname, dt, nt, nload, &
-            nmdot, mdotmin, mdotmax,ename, mbh, nfreq, fmin, fmax, muval,&
-            gmin, gmax,p1, p2, jetalpha, stype,use_geokerr, nvals, iname,&
-            cflag, extra, debug, outfile
-            write(6,*) 'emis args: ',epotherargs,epcoefindx
             
             call assign_fluid_args(fargs,fdfile,fhfile,fgfile,fsim,fnt,findf,fnfiles,fjonfix, &
             fnw,fnfreq_tab,fnr,foffset,fdindf,fmagcrit,frspot,fr0spot,fn0spot,ftscl,frscl, &
@@ -167,7 +147,6 @@
                   gargs%nup=1
                   write(6,*) 'grtrans nload gt 1 loop',size(gargs%t0),allocated(gargs%t0),gargs%nup
                   !$omp parallel do private(i) shared(gargs)
-!                  do i=1,c(1)%nx*c(1)%ny
                   do i=i1,i2
                      call initialize_geo_tabs(gargs,i)
                   enddo
@@ -185,34 +164,24 @@
                endif
                wtime = omp_get_wtime()
                do l=1,nt
-                  !       write(6,*) 'pre loop spin: ',spin,gargs%a
 !$omp parallel do schedule(static,1) private(i) shared(gargs,gunit,c,j,nt,l,spin, &
 !$omp& iname,ename,fname,sparams,eparams,nfreq,nparams,freqs,nup,i1,i2,extra,debug)
                   do i=i1,i2
-                     !                write(6,*) 'i: ',i
 !                  do i=15501,15999
-                     !                 write(6,*) 'i: ',i
-!                write(6,*) 'after loop spin: ',mdots(1),mbh
                      call grtrans_driver(gargs,gunit,c,i,(j-1)*nt+l,iname,ename,fname, &
                      sparams,eparams,nfreq,nparams,freqs,nup,extra,debug)
                   enddo
-!       write(6,*) 'after loop i'
 !$omp end parallel do
-!       write(6,*) 'del geokerr args before'
                   if(l.lt.nt) call advance_fluid_timestep(fname,dt)
                enddo
                write(6,*) 'grtrans wall time elapsed: ', omp_get_wtime() - wtime
                spin=gargs%a
                call del_geokerr_args(gargs)
-               !       write(6,*) 'spin after: ',spin
-               !          call advance_fluid_timestep(fname,dt)
             enddo
             if(nup.eq.1.and.nvals.eq.4) call del_chandra_tab24()
             write(6,*) 'Write camera', nvals, nextra
             allocate(ivals(nvals+nextra,nro*nphi,NCAMS))
             ivals(:,:,:)=0d0
-!            write(6,*) 'ivals initialized: ',minval(ivals),maxval(ivals)
-!            allocate(ab(2,nro*nphi,NCAMS))
             allocate(ab(2,nro*nphi))
             ab=0d0
             ab(:,:) = dble(c(1)%pixloc)
@@ -226,37 +195,16 @@
                     fname, dt, nt, nload, nmdot, mdotmin, mdotmax, &                              
                     ename, mbh, nfreq, fmin, fmax, muval, gmin, gmax,&                            
                     p1, p2, jetalpha, stype, &                                                    
-                    use_geokerr, nvals, iname, extra)     
-!          call kwrite_raytrace_camera(c(m),12,outfile,cflag,m,ncams,size(knames), &
-!         knames,kdescs,(/real(c(m)%nx),real(c(m)%ny),real(FREQS(1+mod(m-1,nfreq)))/), &
-!         standard,mumin,mumax,nmu,phi0,spin,&
-!         uout,uin, rcut, nrotype, gridvals, nn, &
-!         fname, dt, nt, nload, nmdot, mdotmin, mdotmax, &
-!         ename, mbh, nfreq, fmin, fmax, muval, gmin, gmax,&
-!         p1, p2, jetalpha, stype, &
-               !         use_geokerr, nvals, iname, extra)     
-!               write(6,*) 'cm pixvals: ',minval(c(m)%pixvals),maxval(c(m)%pixvals)
+                    use_geokerr, nvals, iname, extra)
                ivals(:,:,m)=dble(c(m)%pixvals)
-!               ab(:,:,m)=c(m)%pixloc
                call del_raytrace_camera(c(m))
             enddo
             call unload_fluid_model(fname)
             deallocate(c)
-            !       do i=1,nparams
-!          deallocate(sparams(i)%gmin)
-!       enddo
             deallocate(sparams); deallocate(eparams%otherargs)
-!       call delete_inputs()
-! delete input variables
             deallocate(mu0); deallocate(mdots)
             return
           end subroutine grtrans_main
-
-!          subroutine init_pgrtrans_data(npix,)
-!            integer, intent(in) :: npix,nmdots,nmu,nfreqs
-!            allocate(ivals(n)); allocate(ab(n)); allocate(freqs(nfreqs))
-!            allocate(mdots(nmdots)); allocate(mu0(nmu))
-!          end subroutine init_pgrtrans_data
 
           subroutine del_pgrtrans_data()
             deallocate(ivals); deallocate(ab); deallocate(freqs)
