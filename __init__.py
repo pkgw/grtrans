@@ -27,9 +27,73 @@ METHOD_FORMAL = 2 # "formal" method; may be "matricant (O-matrix) method from La
 METHOD_LSODA_NO_LINEAR_STOKES = 3 # LSODA with IS_LINEAR_STOKES=0 -- this is "under development" spherical stokes
 
 
-def integrate_ray(x, j, K, atol=1e-8, rtol=1e-6, max_step_size=None,
-                  frac_max_step_size=1e-3, max_steps=100000):
+def integrate_ray_formal(x, j, K):
     """Arguments:
+
+    x
+      1D array, shape (n,). Path length along ray, starting from zero, in cm.
+    j
+      Array, shape (n, 4). Emission coefficients.
+    K
+      Array, shape (n, 7). Absorption coefficients and Faraday mixing coefficients:
+      (alpha_{IQUV}, rho_{123}).
+    Returns:
+      Array of shape (4, m): Stokes intensities along parts of the ray with
+      non-zero total emissivities; m <= n.
+
+    """
+    n = x.size
+
+    # My best understanding is that the formal method doesn't do the same kind
+    # of clipping as LSODA, but here we do the same clipping for consistency,
+    # and since it is genuinely true that the clipped samples are superfluous.
+
+    if np.all(j[:,0] == 0.):
+        return np.zeros((4, n))
+
+    i0 = 0
+    i1 = n - 1
+
+    while j[i0,0] == 0.:
+        i0 += 1
+    while j[i1,0] == 0.:
+        i1 -= 1
+
+    n = i1 + 1 - i0
+    x = x[i0:i1+1]
+    j = j[i0:i1+1]
+    K = K[i0:i1+1]
+
+    # OK we can go.
+
+    radtrans_integrate.init_radtrans_integrate_data(
+        METHOD_FORMAL, # method selector
+        4, # number of equations
+        n, # number of input data points
+        n, # number of output data points
+        10., # maximum optical depth; not used by "formal"
+        1., # maximum absolute step size; not used by "formal"
+        0.1, # absolute tolerance; not used by "formal"
+        0.1, # relative tolerance; not used by "formal"
+        1e-2, # "thin" parameter for DELO method; not used by "formal"
+        1, # maximum number of steps; not used by "formal"
+    )
+
+    try:
+        tau = x # not used by "formal"
+        radtrans_integrate.integrate(x[::-1], j[::-1], K[::-1], tau[::-1], 4)
+        i = radtrans_integrate.intensity.copy()
+    finally:
+        # If we exit without calling this, the next init call causes an abort
+        radtrans_integrate.del_radtrans_integrate_data()
+    return i
+
+
+def integrate_ray_lsoda(x, j, K, atol=1e-8, rtol=1e-6, max_step_size=None,
+                        frac_max_step_size=1e-3, max_steps=100000):
+    """Integrate along a ray using grtrans' LSODA method.
+
+    Arguments:
 
     x
       1D array, shape (n,). Path length along ray, starting from zero, in cm.
