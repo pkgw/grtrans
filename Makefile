@@ -1,6 +1,6 @@
 FC = gfortran
 FCNAME = gnu95
-LOCAL_FFLAGS = -ffixed-line-length-132 -fopenmp -O3 -W -Wall -fPIC $(FFLAGS)
+LOCAL_FFLAGS = -g -ffixed-line-length-132 -fopenmp -O3 -W -Wall -fPIC $(FFLAGS)
 LOCAL_LIBS = -lgomp $(LIBS)
 
 
